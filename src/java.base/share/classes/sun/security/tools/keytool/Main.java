@@ -1208,13 +1208,7 @@ public final class Main {
             doGenSecretKey(alias, keyAlgName, keysize);
             kssave = true;
         } else if (command == IDENTITYDB) {
-            if (filename != null) {
-                try (InputStream inStream = new FileInputStream(filename)) {
-                    doImportIdentityDatabase(inStream);
-                }
-            } else {
-                doImportIdentityDatabase(System.in);
-            }
+            doImportIdentityDatabase();
         } else if (command == IMPORTCERT) {
             InputStream inStream = System.in;
             if (filename != null) {
@@ -2148,7 +2142,7 @@ public final class Main {
      * certificate per identity, because we use the identity's name as the
      * alias (which references a keystore entry), and aliases must be unique.
      */
-    private void doImportIdentityDatabase(InputStream in) {
+    private void doImportIdentityDatabase() {
         System.err.println(rb.getString
             ("No.entries.from.identity.database.added"));
     }
@@ -3512,19 +3506,18 @@ public final class Main {
         } else {
             System.err.print(rb.getString("Enter.alias.name."));
         }
-        return (new BufferedReader(new InputStreamReader(
-                                        System.in))).readLine();
+        return inReader().readLine();
     }
 
     /**
-     * Prompts user for an input string from the command line (System.in)
+     * Prompts user for an input string from the console or System.in
      * @param prompt the prompt string printed
-     * @return the string entered by the user, without the \n at the end
+     * @return the string entered by the user, without any line-termination
+     *         characters at the end
      */
     private String inputStringFromStdin(String prompt) throws Exception {
         System.err.print(prompt);
-        return (new BufferedReader(new InputStreamReader(
-                                        System.in))).readLine();
+        return inReader().readLine();
     }
 
     /**
@@ -3715,8 +3708,7 @@ public final class Main {
      * Gets an X.500 name suitable for inclusion in a certification request.
      */
     private X500Name getX500Name() throws IOException {
-        BufferedReader in;
-        in = new BufferedReader(new InputStreamReader(System.in));
+        LineReader lineReader = inReader();
         String commonName = "Unknown";
         String organizationalUnit = "Unknown";
         String organization = "Unknown";
@@ -3734,23 +3726,23 @@ public final class Main {
                         "Too.many.retries.program.terminated"));
             }
             System.err.println(rb.getString("enter.dname.components"));
-            commonName = inputString(in,
+            commonName = inputString(lineReader,
                     rb.getString("What.is.your.first.and.last.name."),
                     commonName);
-            organizationalUnit = inputString(in,
+            organizationalUnit = inputString(lineReader,
                     rb.getString
                         ("What.is.the.name.of.your.organizational.unit."),
                     organizationalUnit);
-            organization = inputString(in,
+            organization = inputString(lineReader,
                     rb.getString("What.is.the.name.of.your.organization."),
                     organization);
-            city = inputString(in,
+            city = inputString(lineReader,
                     rb.getString("What.is.the.name.of.your.City.or.Locality."),
                     city);
-            state = inputString(in,
+            state = inputString(lineReader,
                     rb.getString("What.is.the.name.of.your.State.or.Province."),
                     state);
-            country = inputString(in,
+            country = inputString(lineReader,
                     rb.getString
                         ("What.is.the.two.letter.country.code.for.this.unit."),
                     country);
@@ -3766,7 +3758,7 @@ public final class Main {
                         (rb.getString("Is.name.correct."));
                 Object[] source = {name};
                 userInput = inputString
-                        (in, form.format(source), rb.getString("no"));
+                        (lineReader, form.format(source), rb.getString("no"));
                 needRepeat = collator.compare(userInput, rb.getString("yes")) != 0 &&
                         collator.compare(userInput, rb.getString("y")) != 0;
             }
@@ -3780,7 +3772,7 @@ public final class Main {
         return ".".equals(input) ? null : input;
     }
 
-    private String inputString(BufferedReader in, String prompt,
+    private String inputString(LineReader lineReader, String prompt,
                                String defaultValue)
         throws IOException
     {
@@ -3791,7 +3783,7 @@ public final class Main {
         System.err.print(form.format(source));
         System.err.flush();
 
-        String value = in.readLine();
+        String value = lineReader.readLine();
         if (value == null || collator.compare(value, "") == 0) {
             value = defaultValue;
         }
@@ -4222,8 +4214,7 @@ public final class Main {
             }
             System.err.print(prompt);
             System.err.flush();
-            reply = (new BufferedReader(new InputStreamReader
-                                        (System.in))).readLine();
+            reply = inReader().readLine();
             if (reply == null ||
                 collator.compare(reply, "") == 0 ||
                 collator.compare(reply, rb.getString("n")) == 0 ||
@@ -5318,6 +5309,19 @@ public final class Main {
         public String extendedExceptionMsg() {
             return null;
         }
+    }
+
+    private static interface LineReader  {
+        String readLine() throws IOException;
+    }
+
+    private static LineReader inReader() {
+        Console con = System.console();
+
+        if (con == null)
+            return () -> (new BufferedReader(new InputStreamReader(System.in))).readLine();
+
+        return () -> con.readLine();
     }
 }
 
